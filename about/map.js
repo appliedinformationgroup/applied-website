@@ -212,7 +212,11 @@ window.initProjectsMap = function () {
       }
 
       el.hidden = false;
-      el.innerHTML = '<table class="continent-stats_table"><tbody>' + rows + '</tbody></table>';
+      el.innerHTML =
+  '<table class="continent-stats_table">' +
+  '<thead><tr><th scope="col">Continent</th><th scope="col">Projects</th></tr></thead>' +
+  '<tbody>' + rows + '</tbody>' +
+  '</table>';
     }
 
     renderContinentStats(countByContinent(mapLocations.features));
