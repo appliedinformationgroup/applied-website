@@ -96,7 +96,16 @@ window.initProjectsMap = function () {
        inputs is duplicated across every project and office. The fields are
        matched on data-* attributes instead, read relative to the item they sit
        in. The legacy id selectors are kept as fallbacks so a cached copy of
-       this script still finds embeds that have not been republished yet. */
+       this script still finds embeds that have not been republished yet.
+
+       Webflow also caps an unpaginated Collection List at 100 rendered items,
+       so a list past that size needs pagination enabled in the Designer. Once
+       it is, this follows the list's own "Next" link (Webflow's standard
+       .w-pagination-next, stable across sites) and fetches/merges each
+       further page in the background — the map paints with whatever is on
+       the page immediately, then fills in as later pages arrive. A list
+       without pagination just resolves after the one page, unchanged from
+       before. */
     const FIELD_SELECTORS = {
       id: '[data-location-id], #locationID, #officeLocationID',
       latitude: '[data-location-latitude], #locationLatitude, #officeLocationLatitude',
@@ -104,10 +113,7 @@ window.initProjectsMap = function () {
       name: '[data-location-name], #locationName, #officeLocationName',
     };
 
-    function collectFeatures(listId, withContinent) {
-      const list = document.getElementById(listId);
-      if (!list) return [];
-
+    function parseFeatures(list, withContinent) {
       const features = [];
 
       list.querySelectorAll(FIELD_SELECTORS.latitude).forEach((latEl) => {
@@ -137,15 +143,51 @@ window.initProjectsMap = function () {
       return features;
     }
 
-    const mapLocations = {
-      type: 'FeatureCollection',
-      features: collectFeatures('location-list', true),
-    };
+    function nextPageHref(list) {
+      const wrapper = list.closest('.w-dyn-list') || list.parentElement;
+      const nextLink = wrapper ? wrapper.querySelector('.w-pagination-next[href]') : null;
+      const href = nextLink && nextLink.getAttribute('href');
+      return href && href !== '#' ? href : null;
+    }
 
-    const officeLocations = {
-      type: 'FeatureCollection',
-      features: collectFeatures('office-location-list', false),
-    };
+    /* Resolves with every feature across all pages. Never throws — a failed
+       fetch/parse on a later page just stops there and returns what has been
+       gathered so far. */
+    async function collectFeatures(listId, withContinent) {
+      const list = document.getElementById(listId);
+      if (!list) return [];
+
+      let features = parseFeatures(list, withContinent);
+      let href = nextPageHref(list);
+      const visited = new Set();
+      let guard = 0;
+
+      while (href && !visited.has(href) && guard < 25) {
+        visited.add(href);
+        guard += 1;
+
+        let doc;
+        try {
+          const res = await fetch(href, { credentials: 'same-origin' });
+          if (!res.ok) break;
+          doc = new DOMParser().parseFromString(await res.text(), 'text/html');
+        } catch (err) {
+          console.warn('[aig-map] pagination fetch failed, stopping at page ' + (guard + 1) + ':', err.message);
+          break;
+        }
+
+        const pageList = doc.getElementById(listId);
+        if (!pageList) break;
+
+        features = features.concat(parseFeatures(pageList, withContinent));
+        href = nextPageHref(pageList);
+      }
+
+      return features;
+    }
+
+    const mapLocations = { type: 'FeatureCollection', features: [] };
+    const officeLocations = { type: 'FeatureCollection', features: [] };
 
     /* ── Continent stats panel ── */
     function countByContinent(features) {
@@ -217,8 +259,6 @@ window.initProjectsMap = function () {
   '<tbody>' + rows + '</tbody>' +
   '</table>';
     }
-
-    renderContinentStats(countByContinent(mapLocations.features));
 
     /* ── Continent polygon highlight ── */
     let continentShapes = { type: 'FeatureCollection', features: [] };
@@ -458,6 +498,22 @@ window.initProjectsMap = function () {
     });
 
     window.aigMap = map;
+
+    /* Populate the sources once the CMS data (all pages of it) is in. Runs
+       independently of map/style load — whichever finishes second applies
+       the data: if the source already exists this updates it directly, and
+       if not, rebuildMapLayers() picks up the already-populated features
+       when it runs. */
+    collectFeatures('location-list', true).then((features) => {
+      mapLocations.features = features;
+      renderContinentStats(countByContinent(mapLocations.features));
+      if (map.getSource('locations')) map.getSource('locations').setData(mapLocations);
+    });
+
+    collectFeatures('office-location-list', false).then((features) => {
+      officeLocations.features = features;
+      if (map.getSource('offices')) map.getSource('offices').setData(officeLocations);
+    });
 
     /* Exposed for the stats panel's hover handlers */
     window.aigHighlightContinent = function (name) {
