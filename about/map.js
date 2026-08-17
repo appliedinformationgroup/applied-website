@@ -90,63 +90,62 @@ window.initProjectsMap = function () {
       };
     }
 
-    /* ── Build GeoJSON from hidden CMS inputs, tagging each with its continent ── */
+    /* ── Build GeoJSON from hidden CMS inputs, tagging each with its continent ──
+
+       A Collection List repeats its embed once per item, so an id on those
+       inputs is duplicated across every project and office. The fields are
+       matched on data-* attributes instead, read relative to the item they sit
+       in. The legacy id selectors are kept as fallbacks so a cached copy of
+       this script still finds embeds that have not been republished yet. */
+    const FIELD_SELECTORS = {
+      id: '[data-location-id], #locationID, #officeLocationID',
+      latitude: '[data-location-latitude], #locationLatitude, #officeLocationLatitude',
+      longitude: '[data-location-longitude], #locationLongitude, #officeLocationLongitude',
+      name: '[data-location-name], #locationName, #officeLocationName',
+    };
+
+    function collectFeatures(listId, withContinent) {
+      const list = document.getElementById(listId);
+      if (!list) return [];
+
+      const features = [];
+
+      list.querySelectorAll(FIELD_SELECTORS.latitude).forEach((latEl) => {
+        const scope = latEl.closest('.w-dyn-item') || latEl.parentElement || list;
+        const lat = latEl.value;
+        const lng = scope.querySelector(FIELD_SELECTORS.longitude)?.value;
+        const name = scope.querySelector(FIELD_SELECTORS.name)?.value;
+        const id = scope.querySelector(FIELD_SELECTORS.id)?.value;
+
+        if (!lat || !lng) return;
+
+        const properties = { name: name || id || '' };
+        if (withContinent) {
+          properties.continent = lookupContinent(Number(lng), Number(lat));
+        }
+
+        features.push({
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: [Number(lng), Number(lat)],
+          },
+          properties,
+        });
+      });
+
+      return features;
+    }
+
     const mapLocations = {
       type: 'FeatureCollection',
-      features: [],
+      features: collectFeatures('location-list', true),
     };
 
     const officeLocations = {
       type: 'FeatureCollection',
-      features: [],
+      features: collectFeatures('office-location-list', false),
     };
-
-    const list = document.getElementById('location-list');
-    const items = list ? Array.from(list.children) : [];
-
-    items.forEach((item) => {
-      const lat = item.querySelector('#locationLatitude')?.value;
-      const lng = item.querySelector('#locationLongitude')?.value;
-      const name = item.querySelector('#locationName')?.value;
-      const id = item.querySelector('#locationID')?.value;
-
-      if (!lat || !lng) return;
-
-      mapLocations.features.push({
-        type: 'Feature',
-        geometry: {
-          type: 'Point',
-          coordinates: [Number(lng), Number(lat)],
-        },
-        properties: {
-          name: name || id || '',
-          continent: lookupContinent(Number(lng), Number(lat)),
-        },
-      });
-    });
-
-    const officeList = document.getElementById('office-location-list');
-    const officeItems = officeList ? Array.from(officeList.children) : [];
-
-    officeItems.forEach((item) => {
-      const lat = item.querySelector('#officeLocationLatitude')?.value;
-      const lng = item.querySelector('#officeLocationLongitude')?.value;
-      const name = item.querySelector('#officeLocationName')?.value;
-      const id = item.querySelector('#officeLocationID')?.value;
-
-      if (!lat || !lng) return;
-
-      officeLocations.features.push({
-        type: 'Feature',
-        geometry: {
-          type: 'Point',
-          coordinates: [Number(lng), Number(lat)],
-        },
-        properties: {
-          name: name || id || '',
-        },
-      });
-    });
 
     /* ── Continent stats panel ── */
     function countByContinent(features) {
