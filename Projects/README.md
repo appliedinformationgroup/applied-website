@@ -64,42 +64,112 @@ and the Grid still needs its hidden `.gridbox-item-meta` block per item
 
 ## Map CSS embed
 
-The map half of the old page-style embed, in full. Everything from
-`#gridbox-map-outer` down is new or changed; the popup rules above it are
-unchanged from what was already on the page.
+The map half of the old page-style embed. The Mapbox popup rules are gone —
+the card is no longer a popup — replaced by the panel rules below. The
+`.map-popup-card` block is unchanged and is where to start on the card's
+look; `.map-panel` is the container around it.
 
 ```css
-  .mapboxgl-popup-content {
-    width: 400px !important;
-    pointer-events: auto;
-    border-radius: 8px;
-    border: 1px solid var(--_colors---button--border--inverse, #e5e5e5);
-    box-shadow: 0px 0px 20px 2.5px rgba(0, 0, 0, 0.1);
-    padding: 0;
-    color: var(--_colors---text--primary, #0a0a0a);
+  /* The marker — or the cluster hiding it — whose card is open. */
+  :root {
+    --_colors---map-marker-active: #34c759;
+  }
+  body.u-dark-mode {
+    --_colors---map-marker-active: #30d158;
+  }
+
+  #gridbox-map-outer {
+    width: 100%;
+    height: 75vh;
+    /* The positioning context for the card panel, and what clips it: a closed
+       panel is tucked out of sight below the map rather than overlapping
+       whatever follows the section. */
+    position: relative;
     overflow: hidden;
+    /* The globe is drawn on this colour by map.js, so the container carries
+       it too and there's no flash of white while Mapbox boots. */
     background-color: var(--_colors---background--primary, #fafafa);
   }
+  #gridbox-map-outer #map {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* ===== The project card panel =====
+     Along the bottom edge of the map, rather than in a bubble pinned to the
+     marker. map.js builds the panel itself — there is nothing to add in the
+     Designer. */
+  .map-panel {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 2;
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto;
+    border: 1px solid var(--_colors---button--border--inverse, #e5e5e5);
+    border-bottom: 0;
+    border-radius: 8px 8px 0 0;
+    box-shadow: 0px 0px 20px 2.5px rgba(0, 0, 0, 0.1);
+    background-color: var(--_colors---background--primary, #fafafa);
+    color: var(--_colors---text--primary, #0a0a0a);
+    overflow: hidden;
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+  .map-panel.is-open {
+    transform: translateY(0);
+  }
+  /* .map-panel.is-auto is set when the map opened the card by itself rather
+     than the visitor clicking a marker. No styles by default — it's here to
+     style the two differently if you ever want to. */
+  @media (prefers-reduced-motion: reduce) {
+    .map-panel {
+      transition: none;
+    }
+  }
   @media screen and (max-width: 480px) {
-    .mapboxgl-popup-content {
-      width: 250px !important;
-    }
-    .mapboxgl-popup {
-      width: 250px !important;
+    .map-panel {
+      max-width: 100%;
     }
   }
-  .mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip {
-    border-top-color: var(--_colors---background--primary, #fafafa);
+
+  .map-panel_close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid var(--_colors---button--border--inverse, #e5e5e5);
+    border-radius: 100%;
+    background-color: var(--_colors---background--primary, #fafafa);
+    color: var(--_colors---text--primary, #0a0a0a);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
   }
-  .mapboxgl-popup-anchor-top .mapboxgl-popup-tip {
-    border-top-color: var(--_colors---background--primary, #fafafa);
+  @media (hover: hover) {
+    .map-panel_close:hover {
+      border-color: var(--_colors---button--border--inverse-hover, #d4d4d4);
+      background-color: var(--_colors---button--background--inverse-hover, #f5f5f5);
+    }
   }
-  .mapboxgl-popup {
-    max-width: 400px !important;
+  .map-panel_close:focus-visible {
+    outline: 2px solid var(--_colors---text--primary, #161616);
+    outline-offset: 2px;
   }
-  .mapboxgl-popup-close-button {
-    display: none !important;
-  }
+
+  /* ===== The card itself =====
+     Unchanged from the old popup — same classes, same markup, it just has a
+     panel around it now instead of a Mapbox bubble. This is the block to
+     play with for the card's look. */
   .map-popup-card {
     display: flex;
     flex-direction: column;
@@ -133,36 +203,6 @@ unchanged from what was already on the page.
     line-height: 1.3;
     color: var(--_colors---text--tertiary, #707070);
   }
-  #gridbox-map-outer {
-    width: 100%;
-    height: 75vh;
-    /* The globe is drawn on this colour by map.js, so the container carries
-       it too and there's no flash of white while Mapbox boots. */
-    background-color: var(--_colors---background--primary, #fafafa);
-  }
-  #gridbox-map-outer #map {
-    width: 100%;
-    height: 100%;
-  }
-  /* A card the map opened by itself while the globe turned, rather than one
-     the visitor clicked. Opacity only — Mapbox positions the popup with a
-     transform on this same element. */
-  .map-popup--auto {
-    animation: map-popup-in 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
-  }
-  @keyframes map-popup-in {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .map-popup--auto {
-      animation: none;
-    }
-  }
 ```
 
 The other embed holds the grid and list CSS — everything not listed here,
@@ -170,6 +210,15 @@ unchanged. No selector appears in both.
 
 ## How the map behaves
 
+- **The card** — a project's card opens in a panel along the bottom edge of
+  the map rather than in a bubble pinned to its marker, so a long name or a
+  wide photo has room and the card never covers the part of the globe you're
+  looking at. `map.js` builds the panel itself; there's nothing to add in the
+  Designer.
+- **The highlight** — while a card is up, its marker is painted in
+  `--_colors---map-marker-active` and drawn larger. At world zoom most
+  projects sit inside a cluster rather than on their own, so the cluster
+  holding it lights up instead — otherwise the card would point at nothing.
 - **Background** — the globe is drawn on the page's own
   `--_colors---background--primary` instead of Mapbox's starfield, and
   follows the light/dark switch.
@@ -193,6 +242,7 @@ Pacing is set by the constants at the top of the file:
 | `SHOWCASE_HOLD_MS` | `4000` | How long an auto-opened card stays up |
 | `SHOWCASE_MIN_LNG_GAP` | `25` | Degrees the globe must turn between cards |
 | `SHOWCASE_TRIGGER_PX` | `60` | How close to the centre line a marker has to be |
+| `MARKER_ACTIVE_RADIUS` | `11` | Size of the highlighted marker, against `MARKER_RADIUS` 8 |
 
 `SHOWCASE_MIN_LNG_GAP` is the one to reach for first: it's what stops a dozen
 London projects firing one after another without the globe ever moving.

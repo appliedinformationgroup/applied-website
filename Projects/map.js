@@ -25,6 +25,9 @@
  *   { lat, lng, name, href, imgSrc, city, country }
  *
  * What the map does beyond showing markers:
+ *   - a project's card opens in a panel along the bottom of the map, not in
+ *     a bubble pinned to its marker — and that marker, or the cluster hiding
+ *     it, lights up in the highlight colour while the card is up;
  *   - it's drawn on the page's own background colour rather than Mapbox's
  *     starfield, and follows the light/dark switch;
  *   - the globe turns slowly while idle, and stops the moment the visitor
@@ -54,6 +57,11 @@
   const MARKER_RADIUS = 8;
   const CLUSTER_COLOR_FALLBACK = '#636366';
   const CLUSTER_TEXT_COLOR_FALLBACK = '#ffffff';
+  // The marker whose card is open, and the cluster it's hiding inside, light
+  // up in this colour. Set --_colors---map-marker-active on the page to
+  // change it without touching this file.
+  const MARKER_ACTIVE_COLOR_FALLBACK = '#34C759';
+  const MARKER_ACTIVE_RADIUS = 11;
   const MAP_BACKGROUND_FALLBACK = '#fafafa';
   // How softly the globe's edge fades into that background colour.
   const MAP_HORIZON_BLEND = 0.04;
@@ -90,7 +98,12 @@
   let mapContainer = null;
   let mounted = false;
   let currentPoints = [];
-  let activePopup = null;
+  let panel = null;
+  let panelContent = null;
+  let cardOpen = false;
+  let activePoint = null;
+  let activeKey = null;
+  let activeClusterId = null;
   let spinFrameId = null;
   let spinResumeTimer = null;
   let lastSpinFrameTime = 0;
@@ -141,7 +154,7 @@
       features: points.map((point, index) => ({
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [point.lng, point.lat] },
-        properties: { idx: index },
+        properties: { idx: index, key: getPointKey(point) },
       })),
     };
   }
@@ -176,18 +189,71 @@
   }
 
   function applyThemeColors() {
-    const markerColor = getCssVariable('--_colors---forground--primary') || CLUSTER_COLOR_FALLBACK;
     const clusterTextColor = getCssVariable('--_colors---text--inverse') || CLUSTER_TEXT_COLOR_FALLBACK;
-
-    if (map.getLayer('clusters')) {
-      map.setPaintProperty('clusters', 'circle-color', markerColor);
-    }
-    if (map.getLayer('unclustered-point')) {
-      map.setPaintProperty('unclustered-point', 'circle-color', markerColor);
-    }
     if (map.getLayer('cluster-count')) {
       map.setPaintProperty('cluster-count', 'text-color', clusterTextColor);
     }
+    applyMarkerColors();
+  }
+
+  /* ── The highlighted project ─────────────────────────────────────────────
+     While a card is open its marker is painted in the highlight colour and
+     drawn a little larger. At world zoom most projects are inside a cluster
+     rather than on their own, so the cluster holding it lights up instead —
+     otherwise the card would point at nothing. */
+  function applyMarkerColors() {
+    if (!map) return;
+    const markerColor = getCssVariable('--_colors---forground--primary') || CLUSTER_COLOR_FALLBACK;
+    const activeColor = getCssVariable('--_colors---map-marker-active') || MARKER_ACTIVE_COLOR_FALLBACK;
+
+    if (map.getLayer('unclustered-point')) {
+      map.setPaintProperty(
+        'unclustered-point',
+        'circle-color',
+        activeKey ? ['case', ['==', ['get', 'key'], activeKey], activeColor, markerColor] : markerColor
+      );
+      map.setPaintProperty(
+        'unclustered-point',
+        'circle-radius',
+        activeKey ? ['case', ['==', ['get', 'key'], activeKey], MARKER_ACTIVE_RADIUS, MARKER_RADIUS] : MARKER_RADIUS
+      );
+    }
+
+    if (map.getLayer('clusters')) {
+      map.setPaintProperty(
+        'clusters',
+        'circle-color',
+        activeClusterId === null
+          ? markerColor
+          : ['case', ['==', ['get', 'cluster_id'], activeClusterId], activeColor, markerColor]
+      );
+    }
+  }
+
+  function setActiveProject(point) {
+    activePoint = point || null;
+    activeKey = point ? getPointKey(point) : null;
+    activeClusterId = null;
+    applyMarkerColors();
+    if (activeKey) findActiveCluster(activeKey);
+  }
+
+  // Which cluster on screen contains the highlighted project. Answered one
+  // cluster at a time by the source, asynchronously, so every callback
+  // re-checks that the same card is still open before painting.
+  function findActiveCluster(key) {
+    const source = map.getSource('gridbox-locations');
+    if (!source || !map.getLayer('clusters')) return;
+
+    map.queryRenderedFeatures(undefined, { layers: ['clusters'] }).forEach((cluster) => {
+      source.getClusterLeaves(cluster.properties.cluster_id, Infinity, 0, (error, leaves) => {
+        if (error || !leaves) return;
+        if (activeKey !== key) return;
+        if (!leaves.some((leaf) => leaf.properties.key === key)) return;
+        activeClusterId = cluster.properties.cluster_id;
+        applyMarkerColors();
+      });
+    });
   }
 
   /* ── Source + layers ─────────────────────────────────────────────────── */
@@ -280,49 +346,66 @@
     );
   }
 
-  /* One card at a time, whether it was opened by a click or by the showcase
-     below. The rotation always stops while a card is up, and the resume is
-     scheduled from whatever closed it. */
-  function openCard(point, coordinates, options) {
+  /* ── The card panel ──────────────────────────────────────────────────────
+     One card at a time, whether a click or the showcase opened it. It sits in
+     a panel along the bottom edge of the map rather than in a bubble pinned
+     to the marker, so a long name or a wide photo has somewhere to go and the
+     card never covers the part of the globe you're looking at. The marker it
+     belongs to lights up instead (see setActiveProject above).
+
+     The panel is built here rather than in the Designer: it belongs to the
+     map, and this way there is nothing to keep in sync in Webflow. */
+  function ensurePanel(container) {
+    if (panel && panel.isConnected) return panel;
+
+    const host = (container && container.parentElement) || container;
+    if (!host) return null;
+
+    panel = host.querySelector('.map-panel');
+    if (!panel) {
+      panel = document.createElement('div');
+      panel.className = 'map-panel';
+      panel.innerHTML =
+        '<button type="button" class="map-panel_close" aria-label="Close">&times;</button>' +
+        '<div class="map-panel_content"></div>';
+      host.appendChild(panel);
+    }
+
+    panelContent = panel.querySelector('.map-panel_content');
+
+    if (!panel.dataset.bound) {
+      panel.dataset.bound = 'true';
+      panel.querySelector('.map-panel_close').addEventListener('click', closeCard);
+      // Reading a card the map opened by itself keeps it up for as long as
+      // the pointer is on it.
+      panel.addEventListener('mouseenter', pauseShowcaseCountdown);
+      panel.addEventListener('mouseleave', resumeShowcaseCountdown);
+    }
+
+    return panel;
+  }
+
+  function openCard(point, options) {
     const isShowcase = Boolean(options && options.showcase);
     if (!isShowcase) cancelShowcase();
-    closeCard();
+    if (!ensurePanel(mapContainer)) return;
+
     stopSpin();
     window.clearTimeout(spinResumeTimer);
 
-    activePopup = new mapboxgl.Popup({
-      className: isShowcase ? 'map-popup--auto' : '',
-      // An auto-opened card shouldn't vanish on the next stray click — it
-      // closes itself on a timer, or when the visitor opens another.
-      closeOnClick: !isShowcase,
-    })
-      .setLngLat(coordinates || [point.lng, point.lat])
-      .setHTML(buildCardMarkup(point))
-      .addTo(map);
-
-    activePopup.on('close', handleCardClose);
-
-    // Reading an auto-opened card keeps it open for as long as the pointer
-    // is on it.
-    const element = isShowcase && activePopup.getElement();
-    if (element) {
-      element.addEventListener('mouseenter', pauseShowcaseCountdown);
-      element.addEventListener('mouseleave', resumeShowcaseCountdown);
-    }
+    panelContent.innerHTML = buildCardMarkup(point);
+    panel.classList.toggle('is-auto', isShowcase);
+    panel.classList.add('is-open');
+    cardOpen = true;
+    setActiveProject(point);
   }
 
-  // Closes the card from our side: the listener comes off first so the
-  // handler below only ever runs for a close the visitor triggered.
   function closeCard() {
-    if (!activePopup) return;
-    const popup = activePopup;
-    activePopup = null;
-    popup.off('close', handleCardClose);
-    popup.remove();
-  }
+    if (!cardOpen) return;
+    cardOpen = false;
+    if (panel) panel.classList.remove('is-open');
+    setActiveProject(null);
 
-  function handleCardClose() {
-    activePopup = null;
     if (showcaseActive) {
       releaseShowcase();
       startSpin();
@@ -350,7 +433,7 @@
         mounted &&
         mapContainer &&
         mapContainer.isConnected &&
-        !activePopup &&
+        !cardOpen &&
         !prefersReducedMotion() &&
         map.getZoom() <= SPIN_MAX_ZOOM
     );
@@ -422,7 +505,7 @@
   }
 
   function maybeShowcaseProject() {
-    if (showcaseActive || activePopup || !currentPoints.length) return;
+    if (showcaseActive || cardOpen || !currentPoints.length) return;
 
     const canvas = map.getCanvas();
     const centerX = canvas.clientWidth / 2;
@@ -461,15 +544,14 @@
 
     showcaseActive = true;
     stopSpin();
-    openCard(nearest, [nearest.lng, nearest.lat], { showcase: true });
+    openCard(nearest, { showcase: true });
     showcaseTimer = window.setTimeout(endShowcase, SHOWCASE_HOLD_MS);
   }
 
   function endShowcase() {
     if (!showcaseActive) return;
+    // closeCard sees showcaseActive and hands the globe back itself.
     closeCard();
-    releaseShowcase();
-    startSpin();
   }
 
   // Drops the showcase's hold on the globe and moves the anchor to wherever
@@ -484,6 +566,10 @@
   function cancelShowcase() {
     if (showcaseActive) closeCard();
     releaseShowcase();
+  }
+
+  function isCardOpen() {
+    return cardOpen;
   }
 
   function pauseShowcaseCountdown() {
@@ -512,7 +598,16 @@
     map.on('click', 'unclustered-point', (event) => {
       const point = currentPoints[event.features[0].properties.idx];
       if (!point) return;
-      openCard(point, event.features[0].geometry.coordinates);
+      openCard(point);
+    });
+
+    // A click on the globe itself, away from any marker, puts the card away —
+    // the panel has a close button, but this is the gesture people reach for.
+    map.on('click', (event) => {
+      if (!cardOpen) return;
+      const layers = ['clusters', 'unclustered-point'].filter((id) => map.getLayer(id));
+      if (layers.length && map.queryRenderedFeatures(event.point, { layers: layers }).length) return;
+      closeCard();
     });
 
     // Hovering a marker is enough to stop the globe under the pointer, so it
@@ -524,7 +619,7 @@
       });
       map.on('mouseleave', layerId, () => {
         map.getCanvas().style.cursor = '';
-        if (!activePopup) scheduleSpinResume(SPIN_HOVER_RESUME_DELAY_MS);
+        if (!cardOpen) scheduleSpinResume(SPIN_HOVER_RESUME_DELAY_MS);
       });
     });
 
@@ -549,6 +644,7 @@
       window.requestAnimationFrame(() => {
         applyThemeColors();
         applyMapBackground();
+        if (cardOpen) setActiveProject(activePoint);
       });
     });
   }
@@ -586,6 +682,7 @@
   function mount(container, points) {
     if (points) setPoints(points);
     mounted = true;
+    ensurePanel(container || mapContainer);
 
     if (map) {
       window.requestAnimationFrame(() => {
@@ -633,5 +730,6 @@
     getMap: function () {
       return map;
     },
+    isCardOpen: isCardOpen,
   };
 })();
