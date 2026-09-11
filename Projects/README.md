@@ -1,31 +1,56 @@
 # Projects page — `map.js`
 
-The script behind the Projects page's Grid / List / Map switcher, loaded into
-Webflow from this repo via jsDelivr.
+The Projects page map: Mapbox, and only Mapbox. Loaded into Webflow from this
+repo via jsDelivr.
 
 ```html
 <script src="https://cdn.jsdelivr.net/gh/appliedinformationgroup/applied-website@main/Projects/map.js"></script>
 ```
 
-It is the whole Gridbox script rather than the map alone: the map has no data
-source of its own, it reads the Grid's DOM, so the two can't be split without
-duplicating the CMS bindings.
+Until the branch this lives on is merged, point the tag at the branch instead:
+`@claude/focused-newton-ut2er3`.
+
+The page's grid, list, view switcher and URL handling stay in the page's own
+embed, where they already work. That embed decides when the map is on screen
+and hands over the projects to show; this file does everything else.
+
+## The interface
+
+The two meet at `window.AIGProjectsMap`:
+
+| Call | What it does |
+| --- | --- |
+| `mount(container, points)` | Show the map in `container`, loading Mapbox GL on first use. Returns a Promise. Calling it again re-uses the map already built. |
+| `update(points)` | New data after filtering or sorting. Safe before the first mount — it just records the points for when the map appears. |
+| `unmount()` | Leaving the map view: stops the rotation, closes any open card. The map is kept, so coming back is instant. |
+| `getMap()` | The Mapbox map, or `null`. An escape hatch for one-off work from the page. |
+
+A point is a plain object. Only `lat` and `lng` are required; the rest fill in
+the card:
+
+```js
+{ lat, lng, name, href, imgSrc, city, country }
+```
+
+The page's own grid items already carry those fields, so they go over
+untouched — extra properties are ignored.
 
 ## Installing it in Webflow
 
-1. Open the Projects page, find the embed holding the old Gridbox script (the
-   one starting `Projects Gridbox — view switcher`), and replace its
-   **entire** contents with the `<script src="…">` tag above. None of that
-   script needs keeping — this file is all of it, plus the map behaviour.
-2. Split the old page-style embed in two: the map CSS below, and the grid +
+1. Add the `<script src="…">` tag above to the Projects page, before the
+   Gridbox embed. (If it lands later the embed waits for it, but before is
+   one less thing happening.)
+2. Update the Gridbox embed to the version that talks to `AIGProjectsMap`
+   instead of driving Mapbox itself.
+3. Split the old page-style embed in two: the map CSS below, and the grid +
    list CSS (everything else, unchanged). No selector appears in both, so the
    order of the two embeds doesn't matter.
-3. Publish.
+4. Publish.
 
-Nothing else in the Designer changes. The map view still needs the same
-markup it has today — a `#gridbox-map-outer` wrapper containing an empty
-`#map` div — and the Grid still needs its hidden `.gridbox-item-meta` block
-per item (`.coord-lat`, `.coord-lng`, `.meta-city`, `.meta-country`,
+Nothing else in the Designer changes. The map view still needs the same markup
+it has today — a `#gridbox-map-outer` wrapper containing an empty `#map` div —
+and the Grid still needs its hidden `.gridbox-item-meta` block per item
+(`.coord-lat`, `.coord-lng`, `.meta-city`, `.meta-country`,
 `.meta-description`, `.meta-map-only`, `.meta-is-case-study`).
 
 ## Map CSS embed
@@ -149,7 +174,7 @@ unchanged. No selector appears in both.
   project gets a turn before any repeats, and resting the pointer on a card
   keeps it open.
 
-Pacing is set by the constants at the top of `initProjectsGridbox`:
+Pacing is set by the constants at the top of the file:
 
 | Constant | Default | What it does |
 | --- | --- | --- |
@@ -165,7 +190,7 @@ London projects firing one after another without the globe ever moving.
 
 ## Caching
 
-jsDelivr caches `@main` for up to 12 hours, so a push won't show up on the
+jsDelivr caches a branch for up to 12 hours, so a push won't show up on the
 live site immediately. To pick up a change straight away, either purge it:
 
 ```
