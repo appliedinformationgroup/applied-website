@@ -135,6 +135,11 @@
   // may open. Seeded with the starting centre so the map is seen turning
   // before the first project introduces itself.
   let showcaseAnchorLng = DEFAULT_MAP_CENTER[0];
+  // The colour mode the current base style was loaded for. The page toggles
+  // other classes on <body> as it goes — is-scrolling, menu states — and the
+  // observer below sees all of them, so this is what separates a real theme
+  // switch from the rest.
+  let appliedColorMode = null;
   const shownShowcaseKeys = new Set();
 
   /* ── Mapbox GL, fetched on first use ─────────────────────────────────── */
@@ -675,7 +680,15 @@
   }
 
   function switchBaseStyle() {
-    map.setStyle(getCurrentColorMode() === 'dark' ? MAP_STYLE_DARK : MAP_STYLE_LIGHT);
+    const mode = getCurrentColorMode();
+    // setStyle rebuilds the source and every layer from scratch: called on a
+    // class change that wasn't the theme — on every scroll event, say — the
+    // markers disappear and never come back, because the next call lands
+    // before the last rebuild has finished.
+    if (mode === appliedColorMode) return;
+    appliedColorMode = mode;
+
+    map.setStyle(mode === 'dark' ? MAP_STYLE_DARK : MAP_STYLE_LIGHT);
     map.once('style.load', () => {
       addLocationLayers(buildGeoJson(currentPoints));
       applyThemeColors();
@@ -691,10 +704,11 @@
   function createMap(container) {
     mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
     mapContainer = container;
+    appliedColorMode = getCurrentColorMode();
 
     map = new mapboxgl.Map({
       container: container,
-      style: getCurrentColorMode() === 'dark' ? MAP_STYLE_DARK : MAP_STYLE_LIGHT,
+      style: appliedColorMode === 'dark' ? MAP_STYLE_DARK : MAP_STYLE_LIGHT,
       center: DEFAULT_MAP_CENTER,
       zoom: DEFAULT_MAP_ZOOM,
       projection: 'globe',
