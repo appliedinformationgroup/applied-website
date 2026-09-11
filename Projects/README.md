@@ -7,8 +7,17 @@ repo via jsDelivr.
 <script src="https://cdn.jsdelivr.net/gh/appliedinformationgroup/applied-website@main/Projects/map.js"></script>
 ```
 
-Until the branch this lives on is merged, point the tag at the branch instead:
-`@claude/focused-newton-ut2er3`.
+Until this is merged to `main`, point the tag at a **commit** instead:
+
+```html
+<script src="https://cdn.jsdelivr.net/gh/appliedinformationgroup/applied-website@224157133ca9ae4c9128be82ac965b66adc9aef9/Projects/map.js"></script>
+```
+
+Not at the branch. jsDelivr reads everything between `@` and the first slash
+as the version, so a branch name containing a slash —
+`claude/focused-newton-ut2er3` — is read as version `claude` and file
+`focused-newton-ut2er3/Projects/map.js`, and 404s. Commit SHAs have no
+slashes, and have the bonus of never changing under the live site.
 
 The page's grid, list, view switcher and URL handling stay in the page's own
 embed, where they already work. That embed decides when the map is on screen
