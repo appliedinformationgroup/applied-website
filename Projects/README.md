@@ -14,9 +14,12 @@ duplicating the CMS bindings.
 ## Installing it in Webflow
 
 1. Open the Projects page, find the embed holding the old Gridbox script (the
-   one starting `Projects Gridbox — view switcher`), and replace its entire
-   contents with the `<script src="…">` tag above.
-2. Add the CSS below to the page's existing **page-style** embed.
+   one starting `Projects Gridbox — view switcher`), and replace its
+   **entire** contents with the `<script src="…">` tag above. None of that
+   script needs keeping — this file is all of it, plus the map behaviour.
+2. Split the old page-style embed in two: the map CSS below, and the grid +
+   list CSS (everything else, unchanged). No selector appears in both, so the
+   order of the two embeds doesn't matter.
 3. Publish.
 
 Nothing else in the Designer changes. The map view still needs the same
@@ -25,23 +28,88 @@ markup it has today — a `#gridbox-map-outer` wrapper containing an empty
 per item (`.coord-lat`, `.coord-lng`, `.meta-city`, `.meta-country`,
 `.meta-description`, `.meta-map-only`, `.meta-is-case-study`).
 
-## CSS to add
+## Map CSS embed
+
+The map half of the old page-style embed, in full. Everything from
+`#gridbox-map-outer` down is new or changed; the popup rules above it are
+unchanged from what was already on the page.
 
 ```css
-  /* ===== Map view ===== */
-  /* Replaces the existing #gridbox-map-outer rule — only the background is
-     new. The globe is drawn on this colour by map.js, so the container
-     carries it too and there's no flash of white while Mapbox boots. */
+  .mapboxgl-popup-content {
+    width: 400px !important;
+    pointer-events: auto;
+    border-radius: 8px;
+    border: 1px solid var(--_colors---button--border--inverse, #e5e5e5);
+    box-shadow: 0px 0px 20px 2.5px rgba(0, 0, 0, 0.1);
+    padding: 0;
+    color: var(--_colors---text--primary, #0a0a0a);
+    overflow: hidden;
+    background-color: var(--_colors---background--primary, #fafafa);
+  }
+  @media screen and (max-width: 480px) {
+    .mapboxgl-popup-content {
+      width: 250px !important;
+    }
+    .mapboxgl-popup {
+      width: 250px !important;
+    }
+  }
+  .mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip {
+    border-top-color: var(--_colors---background--primary, #fafafa);
+  }
+  .mapboxgl-popup-anchor-top .mapboxgl-popup-tip {
+    border-top-color: var(--_colors---background--primary, #fafafa);
+  }
+  .mapboxgl-popup {
+    max-width: 400px !important;
+  }
+  .mapboxgl-popup-close-button {
+    display: none !important;
+  }
+  .map-popup-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    text-decoration: none;
+    color: inherit;
+    width: 100%;
+    padding: 24px;
+  }
+  .map-popup-card_image {
+    width: 100%;
+    aspect-ratio: 448/310;
+    object-fit: cover;
+    display: block;
+  }
+  .map-popup-card_body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+  }
+  .map-popup-card_title {
+    font-size: 20px;
+    line-height: 1.2;
+    letter-spacing: -0.1px;
+    color: var(--_colors---text--primary, #0a0a0a);
+    font-weight: 500;
+  }
+  .map-popup-card_desc {
+    font-size: 15px;
+    line-height: 1.3;
+    color: var(--_colors---text--tertiary, #707070);
+  }
   #gridbox-map-outer {
     width: 100%;
     height: 75vh;
+    /* The globe is drawn on this colour by map.js, so the container carries
+       it too and there's no flash of white while Mapbox boots. */
     background-color: var(--_colors---background--primary, #fafafa);
   }
   #gridbox-map-outer #map {
     width: 100%;
     height: 100%;
   }
-
   /* A card the map opened by itself while the globe turned, rather than one
      the visitor clicked. Opacity only — Mapbox positions the popup with a
      transform on this same element. */
@@ -62,6 +130,9 @@ per item (`.coord-lat`, `.coord-lng`, `.meta-city`, `.meta-country`,
     }
   }
 ```
+
+The other embed holds the grid and list CSS — everything not listed here,
+unchanged. No selector appears in both.
 
 ## How the map behaves
 

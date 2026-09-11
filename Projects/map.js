@@ -6,8 +6,8 @@
  *
  * This is the whole Projects Gridbox script, not the map alone: the map has
  * no data source of its own, it reads the Grid's DOM, so the two can't be
- * split without duplicating the CMS bindings. The matching page CSS lives in
- * the page's "page-style" embed in Webflow.
+ * split without duplicating the CMS bindings. The CSS does split, and lives
+ * in two page embeds in Webflow: one for the map, one for the grid and list.
  *
  * Map behaviour, beyond the grid/list/map switching:
  *   - the globe sits on the page's own background colour rather than
