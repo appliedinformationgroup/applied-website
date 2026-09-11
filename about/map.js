@@ -12,6 +12,20 @@ window.initProjectsMap = function () {
       light: 'mapbox://styles/applied-information-group/cmr3a1400000u01s883gfbh0f',
     };
 
+    /* ── World-fit camera ──
+       Always shows this same lat/lng box, sized to whatever the container's
+       current pixel dimensions are — a fixed zoom can't do that, since how
+       much of the world it shows scales with container size, not just its
+       aspect ratio. Cropped short of the true poles (Mercator can't reach
+       ±90° anyway) to skip mostly-empty Antarctica/high-Arctic space and
+       keep markers larger within the box. Recomputed on every resize since
+       the container can change size at any breakpoint. */
+    const WORLD_BOUNDS = [
+      [-180, -55], // southwest
+      [180, 75], // northeast
+    ];
+    const WORLD_FIT_OPTIONS = { padding: 16, animate: false };
+
     /* Country polygons with a CONTINENT property, from Natural Earth (public domain). */
     const CONTINENTS_URL = 'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson';
 
@@ -481,8 +495,8 @@ window.initProjectsMap = function () {
     const map = new mapboxgl.Map({
       container: 'map',
       style: STYLES[currentMode()] || STYLES.light,
-      center: [10, 20],
-      zoom: 1.5,
+      bounds: WORLD_BOUNDS,
+      fitBoundsOptions: WORLD_FIT_OPTIONS,
       projection: 'mercator',
       renderWorldCopies: true,
 
@@ -498,6 +512,19 @@ window.initProjectsMap = function () {
     });
 
     window.aigMap = map;
+
+    /* The zoom needed to fit WORLD_BOUNDS depends on the container's actual
+       pixel size, not just its 16:9 aspect ratio — so refit whenever that
+       size changes (viewport resize, orientation change, a breakpoint
+       swapping in different CSS). The map's interactions are all locked
+       above, so there's no user camera state this could ever clobber. */
+    if (typeof ResizeObserver !== 'undefined') {
+      const worldFitObserver = new ResizeObserver(() => {
+        map.resize();
+        map.fitBounds(WORLD_BOUNDS, WORLD_FIT_OPTIONS);
+      });
+      worldFitObserver.observe(mapEl);
+    }
 
     /* Populate the sources once the CMS data (all pages of it) is in. Runs
        independently of map/style load — whichever finishes second applies
