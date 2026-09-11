@@ -93,6 +93,28 @@
   // anything more than a quarter turn from the centre is ignored.
   const SHOWCASE_MAX_LNG_DISTANCE = 90;
 
+  /* The panel is built by this file, so the CSS that makes it a panel ships
+     with it: without this it is just a block element in the flow below the
+     map, which is where it ends up if the page's map CSS embed is missing or
+     out of date. Look only — colours, spacing, the card itself — stays in
+     that embed, and overrides these, because this is injected at the top of
+     <head> and the page's own CSS comes after it. */
+  const PANEL_BASE_CSS = [
+    '.map-panel{position:absolute;bottom:0;left:0;right:0;z-index:2;width:100%;',
+    'max-width:400px;margin:0 auto;overflow:hidden;transform:translateY(100%);',
+    'transition:transform .3s cubic-bezier(.25,.46,.45,.94);',
+    'background-color:var(--_colors---background--primary,#fafafa);',
+    'color:var(--_colors---text--primary,#0a0a0a);',
+    'border-radius:8px 8px 0 0;box-shadow:0 0 20px 2.5px rgba(0,0,0,.1)}',
+    '.map-panel.is-open{transform:translateY(0)}',
+    '.map-panel_close{position:absolute;top:12px;right:12px;z-index:1;display:flex;',
+    'align-items:center;justify-content:center;width:28px;height:28px;padding:0;',
+    'border:0;border-radius:100%;background-color:rgba(128,128,128,.12);',
+    'color:inherit;font-size:18px;line-height:1;cursor:pointer}',
+    '@media (prefers-reduced-motion:reduce){.map-panel{transition:none}}',
+    '@media screen and (max-width:480px){.map-panel{max-width:100%}}',
+  ].join('');
+
   let mapboxLoadPromise = null;
   let map = null;
   let mapContainer = null;
@@ -355,11 +377,28 @@
 
      The panel is built here rather than in the Designer: it belongs to the
      map, and this way there is nothing to keep in sync in Webflow. */
+  function ensurePanelStyles() {
+    if (document.getElementById('aig-map-panel-css')) return;
+    const style = document.createElement('style');
+    style.id = 'aig-map-panel-css';
+    style.textContent = PANEL_BASE_CSS;
+    document.head.insertBefore(style, document.head.firstChild);
+  }
+
   function ensurePanel(container) {
+    ensurePanelStyles();
     if (panel && panel.isConnected) return panel;
 
     const host = (container && container.parentElement) || container;
     if (!host) return null;
+
+    // The panel is positioned against this element and clipped by it: without
+    // both, a closed panel sits below the map instead of tucked under its
+    // bottom edge, and lands on whatever follows the section. The page's CSS
+    // embed says the same thing, but this file builds the panel, so it
+    // shouldn't need a stylesheet to arrive to put it in the right place.
+    if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
+    host.style.overflow = 'hidden';
 
     panel = host.querySelector('.map-panel');
     if (!panel) {

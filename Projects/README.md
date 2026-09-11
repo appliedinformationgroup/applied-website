@@ -56,6 +56,10 @@ untouched — extra properties are ignored.
    order of the two embeds doesn't matter.
 4. Publish.
 
+Nothing to build in the Designer for the card panel — `map.js` creates it and
+ships the CSS that makes it a panel, so it works with or without the embed
+below. That embed is for tuning the look.
+
 Nothing else in the Designer changes. The map view still needs the same markup
 it has today — a `#gridbox-map-outer` wrapper containing an empty `#map` div —
 and the Grid still needs its hidden `.gridbox-item-meta` block per item
@@ -68,6 +72,11 @@ The map half of the old page-style embed. The Mapbox popup rules are gone —
 the card is no longer a popup — replaced by the panel rules below. The
 `.map-popup-card` block is unchanged and is where to start on the card's
 look; `.map-panel` is the container around it.
+
+`map.js` injects its own baseline for `.map-panel` and `.map-panel_close` —
+enough to make them a panel at the bottom of the map and nothing more. It goes
+in at the top of `<head>`, so everything here lands after it and wins. Drop a
+rule from this embed and the panel still works, it just looks plainer.
 
 ```css
   /* The marker — or the cluster hiding it — whose card is open. */
