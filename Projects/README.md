@@ -7,17 +7,22 @@ does — every phone, where the map view is hidden, and anyone who stays on the
 grid — downloads none of it. Mapbox GL itself, the heavy part at about 1 MB,
 is fetched by this file in turn, on the same first open.
 
-The URL lives in the embed, in `MAP_MODULE_URL`, pinned to a **commit**:
+The URL lives in the embed, in `MAP_MODULE_URL`, pinned to a **release tag**:
 
 ```js
-const MAP_MODULE_URL = 'https://cdn.jsdelivr.net/gh/appliedinformationgroup/applied-website@<sha>/Projects/map.js';
+const MAP_MODULE_URL = 'https://cdn.jsdelivr.net/gh/appliedinformationgroup/applied-website@v1.0.0/Projects/map.js';
 ```
 
-Pin a commit SHA, not a branch. jsDelivr reads everything between `@` and the
-first slash as the version, so a branch name containing a slash —
-`claude/focused-newton-ut2er3` — is read as version `claude` and file
-`focused-newton-ut2er3/Projects/map.js`, and 404s. A SHA also never changes
-under the live site: a new version goes live when the embed is updated to it.
+Pin a tag, or a commit SHA while testing something unreleased — never a
+branch. A tag or SHA never changes under the live site: a new version goes
+live only when the embed is updated to it, and jsDelivr caches a tag
+permanently. A branch does change, jsDelivr caches it for up to 12 hours, and
+a branch name containing a slash (`claude/…`) doesn't resolve at all —
+jsDelivr reads everything between `@` and the first slash as the version.
+
+To release a change: merge it to `main`, tag the merge `v1.1.0` (or `v2.0.0`
+if it changes the interface below), and update `MAP_MODULE_URL` to the new
+tag.
 
 The page's grid, list, view switcher and URL handling stay in the page's own
 embed, where they already work. That embed decides when the map is on screen
@@ -266,16 +271,3 @@ Pacing is set by the constants at the top of the file:
 
 `SHOWCASE_MIN_LNG_GAP` is the one to reach for first: it's what stops a dozen
 London projects firing one after another without the globe ever moving.
-
-## Caching
-
-jsDelivr caches a branch for up to 12 hours, so a push won't show up on the
-live site immediately. To pick up a change straight away, either purge it:
-
-```
-https://purge.jsdelivr.net/gh/appliedinformationgroup/applied-website@main/Projects/map.js
-```
-
-or pin the tag to a release/commit (`@v1.0.0`, or `@<sha>`) and bump it in
-Webflow when you want the change to land — which is the safer habit for a
-live site, since it can't update underneath you.

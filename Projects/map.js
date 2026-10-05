@@ -1,8 +1,10 @@
 /**
  * Applied Information Group — Projects page map.
  *
- * Hosted here and loaded on the Webflow Projects page via jsDelivr:
- *   <script src="https://cdn.jsdelivr.net/gh/appliedinformationgroup/applied-website@main/Projects/map.js"></script>
+ * Served from this repo via jsDelivr, and fetched by the Projects page's
+ * Gridbox embed the first time the map view opens — never a script tag on
+ * the page. The embed pins a release:
+ *   https://cdn.jsdelivr.net/gh/appliedinformationgroup/applied-website@v1.0.0/Projects/map.js
  *
  * Everything Mapbox, and nothing else. The page's grid, list, view switcher
  * and URL handling stay in the page's own embed, which hands projects over
