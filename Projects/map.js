@@ -162,6 +162,9 @@
   let activePoint = null;
   let activeKey = null;
   let activeClusterId = null;
+  // Set when a click flew the map in to a project, so putting that card away
+  // knows to fly back out. An auto-shown card never moved the map.
+  let focusedByClick = false;
   let spinFrameId = null;
   let spinResumeTimer = null;
   let lastSpinFrameTime = 0;
@@ -713,7 +716,7 @@
       if (!cardOpen) return;
       const layers = ['clusters', 'unclustered-point'].filter((id) => map.getLayer(id));
       if (layers.length && map.queryRenderedFeatures(event.point, { layers: layers }).length) return;
-      closeCard();
+      dismissCard();
     });
 
     // Hovering a marker is enough to stop the globe under the pointer, so it
@@ -778,6 +781,7 @@
   }
 
   function focusOn(coordinates) {
+    focusedByClick = true;
     map.flyTo({
       center: coordinates,
       zoom: Math.max(map.getZoom(), CARD_FOCUS_ZOOM),
@@ -785,9 +789,26 @@
     });
   }
 
+  // Back out to the whole globe once a card the visitor opened is put away:
+  // the default zoom and latitude, over the longitude they were already
+  // looking at — so the globe doesn't swing round to get home — and turning
+  // again shortly after it lands.
+  function resetView() {
+    focusedByClick = false;
+    map.flyTo({ center: [map.getCenter().lng, DEFAULT_MAP_CENTER[1]], zoom: DEFAULT_MAP_ZOOM });
+    map.once('moveend', () => scheduleSpinResume(SPIN_HOVER_RESUME_DELAY_MS));
+  }
+
+  // Putting a card away by hand — a click off it, or Escape.
+  function dismissCard() {
+    const shouldReset = focusedByClick;
+    closeCard();
+    if (shouldReset) resetView();
+  }
+
   function handleKeydown(event) {
     if (event.key !== 'Escape' || !cardOpen || !mounted) return;
-    closeCard();
+    dismissCard();
   }
 
   function createMap(container) {
@@ -862,6 +883,7 @@
   // The map instance is kept, so coming back is instant.
   function unmount() {
     mounted = false;
+    focusedByClick = false;
     cancelShowcase();
     closeCard();
     stopSpin();

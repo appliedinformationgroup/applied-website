@@ -217,7 +217,11 @@ unchanged. No selector appears in both.
   showing, and keyboard focus reveals it too. A case-study card carries an
   `is-link` class for styling the two apart.
 - **Closing a card** — click anywhere on the map, away from a marker, or press
-  Escape. There's no close button.
+  Escape. There's no close button. If the card was opened by clicking a
+  marker, closing it flies the map back out to the whole globe — over the
+  longitude it was already looking at, so it doesn't swing round — and the
+  globe starts turning again once it lands. A card the map opened by itself
+  never moved the map, so closing one doesn't either.
 - **Branding** — the Mapbox wordmark and the © Mapbox / © OpenStreetMap line
   are off, since the site credits them elsewhere. Mapbox's terms ask for both
   on the map; `SHOW_MAPBOX_BRANDING` at the top of `map.js` brings them back.
