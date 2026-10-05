@@ -22,7 +22,10 @@
  *
  * A point is a plain object. Only lat and lng are required, the rest fill in
  * the card:
- *   { lat, lng, name, href, imgSrc, city, country, actionsHtml }
+ *   { lat, lng, name, hook, categories, city, country, imgSrc, href, actionsHtml }
+ *
+ * The text reads: name, then hook (a one-line description), then a line of
+ * categories (an array of strings) and location, separated by dots.
  *
  * With an href the whole card is a link there. Without one it isn't a link,
  * and actionsHtml — trusted HTML from the page, inserted as-is — is shown
@@ -382,8 +385,19 @@
       .join(', ');
   }
 
+  // "city · transport · London, UK": categories first, then where it is.
+  function formatMeta(point) {
+    const categories = Array.isArray(point.categories) ? point.categories : [];
+    return categories
+      .concat(formatLocation(point))
+      .map((part) => String(part || '').trim())
+      .filter(Boolean)
+      .join(' \u00b7 ');
+  }
+
   function buildCardMarkup(point) {
-    const location = formatLocation(point);
+    const meta = formatMeta(point);
+    const hook = String(point.hook || '').trim();
     const name = escapeHtml(point.name);
     const isLink = Boolean(point.href && point.href !== '#');
     // A project with somewhere to go is a link, the whole card. One without
@@ -406,7 +420,8 @@
       '<span class="map-popup-card_title">' +
       name +
       '</span>' +
-      (location ? '<span class="map-popup-card_desc">' + escapeHtml(location) + '</span>' : '') +
+      (hook ? '<span class="map-popup-card_hook">' + escapeHtml(hook) + '</span>' : '') +
+      (meta ? '<span class="map-popup-card_desc">' + escapeHtml(meta) + '</span>' : '') +
       '</span>' +
       (point.imgSrc ? '' : actions);
 

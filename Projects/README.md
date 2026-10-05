@@ -39,8 +39,13 @@ A point is a plain object. Only `lat` and `lng` are required; the rest fill in
 the card:
 
 ```js
-{ lat, lng, name, href, imgSrc, city, country, actionsHtml }
+{ lat, lng, name, hook, categories, city, country, imgSrc, href, actionsHtml }
 ```
+
+The text reads name, then `hook` — the one-line description — in
+`.map-popup-card_hook`, then a line of `categories` (an array) and the
+location, joined with dots, in `.map-popup-card_desc`:
+"city · transport · London, UK".
 
 With an `href`, the whole card is a link there. Without one it isn't a link,
 and `actionsHtml` — HTML from the page, inserted as-is — is shown instead, in
@@ -214,6 +219,12 @@ rule from this embed and the panel still works, it just looks plainer.
     letter-spacing: -0.1px;
     color: var(--_colors---text--primary, #0a0a0a);
     font-weight: 500;
+  }
+  .map-popup-card_hook {
+    font-size: 20px;
+    line-height: 1.3;
+    letter-spacing: -0.1px;
+    color: var(--_colors---text--tertiary, #707070);
   }
   .map-popup-card_desc {
     font-size: 15px;
