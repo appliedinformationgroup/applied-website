@@ -7,10 +7,11 @@ repo via jsDelivr.
 <script src="https://cdn.jsdelivr.net/gh/appliedinformationgroup/applied-website@main/Projects/map.js"></script>
 ```
 
-Until this is merged to `main`, point the tag at a **commit** instead:
+Until this is merged to `main`, point the tag at a **commit** instead —
+the latest one on the branch, in place of `<sha>`:
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/appliedinformationgroup/applied-website@224157133ca9ae4c9128be82ac965b66adc9aef9/Projects/map.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/appliedinformationgroup/applied-website@<sha>/Projects/map.js"></script>
 ```
 
 Not at the branch. jsDelivr reads everything between `@` and the first slash
@@ -38,11 +39,15 @@ A point is a plain object. Only `lat` and `lng` are required; the rest fill in
 the card:
 
 ```js
-{ lat, lng, name, href, imgSrc, city, country }
+{ lat, lng, name, href, imgSrc, city, country, actionsHtml }
 ```
 
-The page's own grid items already carry those fields, so they go over
-untouched — extra properties are ignored.
+With an `href`, the whole card is a link there. Without one it isn't a link,
+and `actionsHtml` — HTML from the page, inserted as-is — is shown under the
+text instead, in `.map-popup-card_actions`. The page decides which a project
+gets: on the Projects page a case study links to its page, and anything else
+carries the grid card's own "Ask about this project" button, cloned with its
+Designer classes and its `mailto:` subject set to the project name.
 
 ## Installing it in Webflow
 
@@ -219,6 +224,9 @@ unchanged. No selector appears in both.
 
 ## How the map behaves
 
+- **Case study or enquiry** — the card does what the grid card does. A case
+  study is a link to its page; any other project isn't a link, and carries
+  the "Ask about this project" email button instead.
 - **The card** — a project's card opens in a panel along the bottom edge of
   the map rather than in a bubble pinned to its marker, so a long name or a
   wide photo has room and the card never covers the part of the globe you're
