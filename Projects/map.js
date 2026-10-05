@@ -72,6 +72,10 @@
   const MARKER_ACTIVE_COLOR_FALLBACK = '#34C759';
   const MARKER_ACTIVE_RADIUS = 11;
   const MAP_BACKGROUND_FALLBACK = '#fafafa';
+  // Mapbox's wordmark and the © Mapbox / © OpenStreetMap line. Off: the site
+  // credits them elsewhere. Their terms ask for both, so this is the one
+  // switch to flip if that ever needs to change.
+  const SHOW_MAPBOX_BRANDING = false;
   // How softly the globe's edge fades into that background colour.
   const MAP_HORIZON_BLEND = 0.04;
   // Idle rotation. Degrees per second (not per frame) so the globe turns at
@@ -116,10 +120,6 @@
     'color:var(--_colors---text--primary,#0a0a0a);',
     'border-radius:8px 8px 0 0;box-shadow:0 0 20px 2.5px rgba(0,0,0,.1)}',
     '.map-panel.is-open{transform:translateY(0)}',
-    '.map-panel_close{position:absolute;top:12px;right:12px;z-index:1;display:flex;',
-    'align-items:center;justify-content:center;width:28px;height:28px;padding:0;',
-    'border:0;border-radius:100%;background-color:rgba(128,128,128,.12);',
-    'color:inherit;font-size:18px;line-height:1;cursor:pointer}',
     '.map-popup-card_actions{display:flex;flex-wrap:wrap;gap:8px}',
     '.map-popup-card_media{position:relative;overflow:hidden}',
     '.map-popup-card_media .map-popup-card_actions{position:absolute;inset:0;',
@@ -144,7 +144,7 @@
     '@media (prefers-reduced-motion:reduce){.map-popup-card_image{transition:none;transform:none!important}}',
     '@media (prefers-reduced-motion:reduce){.map-panel{transition:none}}',
     '@media screen and (max-width:480px){.map-panel{max-width:100%}}',
-  ].join('');
+  ].join('') + (SHOW_MAPBOX_BRANDING ? '' : '.mapboxgl-ctrl-logo{display:none!important}');
 
   let mapboxLoadPromise = null;
   let map = null;
@@ -467,9 +467,9 @@
     if (!panel) {
       panel = document.createElement('div');
       panel.className = 'map-panel';
-      panel.innerHTML =
-        '<button type="button" class="map-panel_close" aria-label="Close">&times;</button>' +
-        '<div class="map-panel_content"></div>';
+      // No close button: a click anywhere on the map puts the card away
+      // (see bindInteractions), and Escape does for a keyboard.
+      panel.innerHTML = '<div class="map-panel_content"></div>';
       host.appendChild(panel);
     }
 
@@ -477,7 +477,6 @@
 
     if (!panel.dataset.bound) {
       panel.dataset.bound = 'true';
-      panel.querySelector('.map-panel_close').addEventListener('click', closeCard);
       // Reading a card the map opened by itself keeps it up for as long as
       // the pointer is on it.
       panel.addEventListener('mouseenter', pauseShowcaseCountdown);
@@ -703,8 +702,7 @@
       openCard(point);
     });
 
-    // A click on the globe itself, away from any marker, puts the card away —
-    // the panel has a close button, but this is the gesture people reach for.
+    // A click on the globe itself, away from any marker, puts the card away.
     map.on('click', (event) => {
       if (!cardOpen) return;
       const layers = ['clusters', 'unclustered-point'].filter((id) => map.getLayer(id));
@@ -759,13 +757,21 @@
     });
   }
 
+  function handleKeydown(event) {
+    if (event.key !== 'Escape' || !cardOpen || !mounted) return;
+    closeCard();
+  }
+
   function createMap(container) {
     mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
     mapContainer = container;
     appliedColorMode = getCurrentColorMode();
 
+    document.addEventListener('keydown', handleKeydown);
+
     map = new mapboxgl.Map({
       container: container,
+      attributionControl: SHOW_MAPBOX_BRANDING,
       style: appliedColorMode === 'dark' ? MAP_STYLE_DARK : MAP_STYLE_LIGHT,
       center: DEFAULT_MAP_CENTER,
       zoom: DEFAULT_MAP_ZOOM,

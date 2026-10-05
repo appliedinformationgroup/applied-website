@@ -1,24 +1,23 @@
 # Projects page — `map.js`
 
-The Projects page map: Mapbox, and only Mapbox. Loaded into Webflow from this
-repo via jsDelivr.
+The Projects page map: Mapbox, and only Mapbox. Served from this repo via
+jsDelivr, and **not** a script tag on the page: the page's Gridbox embed
+fetches it the first time someone opens the map view, so a visitor who never
+does — every phone, where the map view is hidden, and anyone who stays on the
+grid — downloads none of it. Mapbox GL itself, the heavy part at about 1 MB,
+is fetched by this file in turn, on the same first open.
 
-```html
-<script src="https://cdn.jsdelivr.net/gh/appliedinformationgroup/applied-website@main/Projects/map.js"></script>
+The URL lives in the embed, in `MAP_MODULE_URL`, pinned to a **commit**:
+
+```js
+const MAP_MODULE_URL = 'https://cdn.jsdelivr.net/gh/appliedinformationgroup/applied-website@<sha>/Projects/map.js';
 ```
 
-Until this is merged to `main`, point the tag at a **commit** instead —
-the latest one on the branch, in place of `<sha>`:
-
-```html
-<script src="https://cdn.jsdelivr.net/gh/appliedinformationgroup/applied-website@<sha>/Projects/map.js"></script>
-```
-
-Not at the branch. jsDelivr reads everything between `@` and the first slash
-as the version, so a branch name containing a slash —
+Pin a commit SHA, not a branch. jsDelivr reads everything between `@` and the
+first slash as the version, so a branch name containing a slash —
 `claude/focused-newton-ut2er3` — is read as version `claude` and file
-`focused-newton-ut2er3/Projects/map.js`, and 404s. Commit SHAs have no
-slashes, and have the bonus of never changing under the live site.
+`focused-newton-ut2er3/Projects/map.js`, and 404s. A SHA also never changes
+under the live site: a new version goes live when the embed is updated to it.
 
 The page's grid, list, view switcher and URL handling stay in the page's own
 embed, where they already work. That embed decides when the map is on screen
@@ -59,11 +58,13 @@ Designer classes and its `mailto:` subject set to the project name.
 
 ## Installing it in Webflow
 
-1. Add the `<script src="…">` tag above to the Projects page, before the
-   Gridbox embed. (If it lands later the embed waits for it, but before is
-   one less thing happening.)
-2. Update the Gridbox embed to the version that talks to `AIGProjectsMap`
-   instead of driving Mapbox itself.
+1. Update the Gridbox embed to the version that talks to `AIGProjectsMap`
+   and loads this file itself, with `MAP_MODULE_URL` pointing at the commit
+   you want. There is no separate `<script>` tag for `map.js` — remove it if
+   an earlier install added one.
+2. If the map view button is hidden at a breakpoint, the map view is off
+   there too, even for a `?display=map` link — the embed falls back to the
+   grid rather than fetch a map nobody can switch to.
 3. Split the old page-style embed in two: the map CSS below, and the grid +
    list CSS (everything else, unchanged). No selector appears in both, so the
    order of the two embeds doesn't matter.
@@ -86,8 +87,8 @@ the card is no longer a popup — replaced by the panel rules below. The
 `.map-popup-card` block is unchanged and is where to start on the card's
 look; `.map-panel` is the container around it.
 
-`map.js` injects its own baseline for `.map-panel` and `.map-panel_close` —
-enough to make them a panel at the bottom of the map and nothing more. It goes
+`map.js` injects its own baseline for `.map-panel` — enough to make it a
+panel at the bottom of the map, and the card's hover, and nothing more. It goes
 in at the top of `<head>`, so everything here lands after it and wins. Drop a
 rule from this embed and the panel still works, it just looks plainer.
 
@@ -157,37 +158,6 @@ rule from this embed and the panel still works, it just looks plainer.
     }
   }
 
-  .map-panel_close {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    z-index: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    padding: 0;
-    border: 1px solid var(--_colors---button--border--inverse, #e5e5e5);
-    border-radius: 100%;
-    background-color: var(--_colors---background--primary, #fafafa);
-    color: var(--_colors---text--primary, #0a0a0a);
-    font-size: 18px;
-    line-height: 1;
-    cursor: pointer;
-    transition: background-color 0.2s ease, border-color 0.2s ease;
-  }
-  @media (hover: hover) {
-    .map-panel_close:hover {
-      border-color: var(--_colors---button--border--inverse-hover, #d4d4d4);
-      background-color: var(--_colors---button--background--inverse-hover, #f5f5f5);
-    }
-  }
-  .map-panel_close:focus-visible {
-    outline: 2px solid var(--_colors---text--primary, #161616);
-    outline-offset: 2px;
-  }
-
   /* ===== The card itself =====
      Unchanged from the old popup — same classes, same markup, it just has a
      panel around it now instead of a Mapbox bubble. This is the block to
@@ -248,6 +218,11 @@ unchanged. No selector appears in both.
   75%. Where there's no hover — phones, tablets — the button is simply always
   showing, and keyboard focus reveals it too. A case-study card carries an
   `is-link` class for styling the two apart.
+- **Closing a card** — click anywhere on the map, away from a marker, or press
+  Escape. There's no close button.
+- **Branding** — the Mapbox wordmark and the © Mapbox / © OpenStreetMap line
+  are off, since the site credits them elsewhere. Mapbox's terms ask for both
+  on the map; `SHOW_MAPBOX_BRANDING` at the top of `map.js` brings them back.
 - **The card** — a project's card opens in a panel along the bottom edge of
   the map rather than in a bubble pinned to its marker, so a long name or a
   wide photo has room and the card never covers the part of the globe you're
