@@ -119,29 +119,32 @@ rule from this embed and the panel still works, it just looks plainer.
   }
 
   /* ===== The project card panel =====
-     Along the bottom edge of the map, rather than in a bubble pinned to the
-     marker. map.js builds the panel itself — there is nothing to add in the
-     Designer. */
+     A card floating in the bottom-left corner of the map, in from its edges
+     by the page's own gutter. map.js builds it — there is nothing to add in
+     the Designer — and flies a clicked project into the space to its right. */
   .map-panel {
+    /* The gap between the card and the map's edges. */
+    --map-panel-offset: var(--_containers---container-large--padding-x, 1.5rem);
     position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    left: var(--map-panel-offset);
+    bottom: var(--map-panel-offset);
     z-index: 2;
-    width: 100%;
+    width: calc(100% - 2 * var(--map-panel-offset));
     max-width: 400px;
-    margin: 0 auto;
     border: 1px solid var(--_colors---button--border--inverse, #e5e5e5);
-    border-bottom: 0;
-    border-radius: 8px 8px 0 0;
+    border-radius: 8px;
     box-shadow: 0px 0px 20px 2.5px rgba(0, 0, 0, 0.1);
     background-color: var(--_colors---background--primary, #fafafa);
     color: var(--_colors---text--primary, #0a0a0a);
     overflow: hidden;
-    transform: translateY(100%);
-    transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    opacity: 0;
+    transform: translateY(calc(100% + var(--map-panel-offset)));
+    transition:
+      transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+      opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   }
   .map-panel.is-open {
+    opacity: 1;
     transform: translateY(0);
   }
   /* .map-panel.is-auto is set when the map opened the card by itself rather
@@ -150,11 +153,6 @@ rule from this embed and the panel still works, it just looks plainer.
   @media (prefers-reduced-motion: reduce) {
     .map-panel {
       transition: none;
-    }
-  }
-  @media screen and (max-width: 480px) {
-    .map-panel {
-      max-width: 100%;
     }
   }
 
@@ -223,8 +221,13 @@ unchanged. No selector appears in both.
 - **Branding** — the Mapbox wordmark and the © Mapbox / © OpenStreetMap line
   are off, since the site credits them elsewhere. Mapbox's terms ask for both
   on the map; `SHOW_MAPBOX_BRANDING` at the top of `map.js` brings them back.
-- **The card** — a project's card opens in a panel along the bottom edge of
-  the map rather than in a bubble pinned to its marker, so a long name or a
+- **Clicking a project** — the map flies to it, zoomed in to at least
+  `CARD_FOCUS_ZOOM`, and centres it in the space to the right of the card, so
+  the card never covers it. The card is measured when it opens, so restyling
+  it can't break that.
+- **The card** — a project's card floats in the bottom-left corner of the
+  map, in from its edges by `--map-panel-offset` (the page gutter), rather
+  than in a bubble pinned to its marker, so a long name or a
   wide photo has room and the card never covers the part of the globe you're
   looking at. `map.js` builds the panel itself; there's nothing to add in the
   Designer.

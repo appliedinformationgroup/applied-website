@@ -71,6 +71,9 @@
   // change it without touching this file.
   const MARKER_ACTIVE_COLOR_FALLBACK = '#34C759';
   const MARKER_ACTIVE_RADIUS = 11;
+  // Clicking a marker flies to it, close enough to see the place it's in.
+  // Never zooms out: someone already closer than this stays that close.
+  const CARD_FOCUS_ZOOM = 10;
   const MAP_BACKGROUND_FALLBACK = '#fafafa';
   // Mapbox's wordmark and the © Mapbox / © OpenStreetMap line. Off: the site
   // credits them elsewhere. Their terms ask for both, so this is the one
@@ -113,13 +116,15 @@
      that embed, and overrides these, because this is injected at the top of
      <head> and the page's own CSS comes after it. */
   const PANEL_BASE_CSS = [
-    '.map-panel{position:absolute;bottom:0;left:0;right:0;z-index:2;width:100%;',
-    'max-width:400px;margin:0 auto;overflow:hidden;transform:translateY(100%);',
-    'transition:transform .3s cubic-bezier(.25,.46,.45,.94);',
+    '.map-panel{--map-panel-offset:var(--_containers---container-large--padding-x,1.5rem);',
+    'position:absolute;left:var(--map-panel-offset);bottom:var(--map-panel-offset);z-index:2;',
+    'width:calc(100% - 2 * var(--map-panel-offset));max-width:400px;overflow:hidden;',
+    'opacity:0;transform:translateY(calc(100% + var(--map-panel-offset)));',
+    'transition:transform .3s cubic-bezier(.25,.46,.45,.94),opacity .3s cubic-bezier(.25,.46,.45,.94);',
     'background-color:var(--_colors---background--primary,#fafafa);',
     'color:var(--_colors---text--primary,#0a0a0a);',
-    'border-radius:8px 8px 0 0;box-shadow:0 0 20px 2.5px rgba(0,0,0,.1)}',
-    '.map-panel.is-open{transform:translateY(0)}',
+    'border-radius:8px;box-shadow:0 0 20px 2.5px rgba(0,0,0,.1)}',
+    '.map-panel.is-open{opacity:1;transform:translateY(0)}',
     '.map-popup-card_actions{display:flex;flex-wrap:wrap;gap:8px}',
     '.map-popup-card_media{position:relative;overflow:hidden}',
     '.map-popup-card_media .map-popup-card_actions{position:absolute;inset:0;',
@@ -143,7 +148,7 @@
     '}',
     '@media (prefers-reduced-motion:reduce){.map-popup-card_image{transition:none;transform:none!important}}',
     '@media (prefers-reduced-motion:reduce){.map-panel{transition:none}}',
-    '@media screen and (max-width:480px){.map-panel{max-width:100%}}',
+
   ].join('') + (SHOW_MAPBOX_BRANDING ? '' : '.mapboxgl-ctrl-logo{display:none!important}');
 
   let mapboxLoadPromise = null;
@@ -700,6 +705,7 @@
       const point = currentPoints[event.features[0].properties.idx];
       if (!point) return;
       openCard(point);
+      focusOn(event.features[0].geometry.coordinates);
     });
 
     // A click on the globe itself, away from any marker, puts the card away.
@@ -754,6 +760,28 @@
         applyMapBackground();
         if (cardOpen) setActiveProject(activePoint);
       });
+    });
+  }
+
+  /* A clicked project is flown to, and centred in the part of the map the
+     card isn't covering — the card sits bottom-left, so the project lands in
+     the middle of the space to its right rather than behind it. That's an
+     offset, not camera padding: padding would stay on the map afterwards and
+     knock the globe off-centre for the spin. The card is measured, not
+     assumed, so restyling it in CSS can't put it back over the project. */
+  function cardFootprint() {
+    if (!panel || !mapContainer) return 0;
+    const card = panel.getBoundingClientRect();
+    const box = mapContainer.getBoundingClientRect();
+    // The card's right edge, plus the same gap again on its far side.
+    return card.right - box.left + (card.left - box.left);
+  }
+
+  function focusOn(coordinates) {
+    map.flyTo({
+      center: coordinates,
+      zoom: Math.max(map.getZoom(), CARD_FOCUS_ZOOM),
+      offset: [cardFootprint() / 2, 0],
     });
   }
 
