@@ -118,9 +118,27 @@
     'border:0;border-radius:100%;background-color:rgba(128,128,128,.12);',
     'color:inherit;font-size:18px;line-height:1;cursor:pointer}',
     '.map-popup-card_actions{display:flex;flex-wrap:wrap;gap:8px}',
-    '.map-popup-card_media{position:relative}',
+    '.map-popup-card_media{position:relative;overflow:hidden}',
     '.map-popup-card_media .map-popup-card_actions{position:absolute;inset:0;',
     'align-items:center;justify-content:center;padding:12px}',
+    /* Hover, the same as the grid card, and on the page's own
+       --image-hover-* settings so the two stay in step: a link card's photo
+       grows; a card with actions keeps its photo still, fades its actions in
+       and dims itself. Only where there is a hover — on a touch screen the
+       actions stay visible, or there would be no way to reach them — and
+       focus reveals them too, for a keyboard. */
+    '.map-popup-card{transition:opacity .36s}',
+    '@media (hover:hover){',
+    '.map-popup-card_image{transition:transform var(--image-hover-duration,800ms) ',
+    'var(--image-hover-easing,cubic-bezier(.165,.84,.44,1))}',
+    '.map-popup-card.is-link:hover .map-popup-card_image{transform:scale(var(--image-hover-scale,1.05))}',
+    '.map-popup-card_media .map-popup-card_actions{opacity:0;transition:opacity ',
+    'var(--image-hover-duration,800ms) var(--image-hover-easing,cubic-bezier(.165,.84,.44,1))}',
+    '.map-popup-card:hover .map-popup-card_media .map-popup-card_actions,',
+    '.map-popup-card:focus-within .map-popup-card_media .map-popup-card_actions{opacity:1}',
+    '.map-popup-card:not(.is-link):hover{opacity:.75}',
+    '}',
+    '@media (prefers-reduced-motion:reduce){.map-popup-card_image{transition:none;transform:none!important}}',
     '@media (prefers-reduced-motion:reduce){.map-panel{transition:none}}',
     '@media screen and (max-width:480px){.map-panel{max-width:100%}}',
   ].join('');
@@ -393,7 +411,7 @@
       (point.imgSrc ? '' : actions);
 
     if (isLink) {
-      return '<a class="map-popup-card" href="' + escapeHtml(point.href) + '">' + content + '</a>';
+      return '<a class="map-popup-card is-link" href="' + escapeHtml(point.href) + '">' + content + '</a>';
     }
     return '<div class="map-popup-card">' + content + '</div>';
   }

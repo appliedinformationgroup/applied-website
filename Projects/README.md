@@ -230,6 +230,13 @@ unchanged. No selector appears in both.
 - **Case study or enquiry** — the card does what the grid card does. A case
   study is a link to its page; any other project isn't a link, and carries
   the "Ask about this project" email button instead.
+- **Hover** — the same as the grid card, and driven by the page's own
+  `--image-hover-scale`, `--image-hover-duration` and `--image-hover-easing`,
+  so changing those changes both. A case study's photo grows; any other
+  project's photo stays still while its button fades in and the card dims to
+  75%. Where there's no hover — phones, tablets — the button is simply always
+  showing, and keyboard focus reveals it too. A case-study card carries an
+  `is-link` class for styling the two apart.
 - **The card** — a project's card opens in a panel along the bottom edge of
   the map rather than in a bubble pinned to its marker, so a long name or a
   wide photo has room and the card never covers the part of the globe you're
