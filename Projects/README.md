@@ -43,8 +43,11 @@ the card:
 ```
 
 With an `href`, the whole card is a link there. Without one it isn't a link,
-and `actionsHtml` — HTML from the page, inserted as-is — is shown under the
-text instead, in `.map-popup-card_actions`. The page decides which a project
+and `actionsHtml` — HTML from the page, inserted as-is — is shown instead, in
+`.map-popup-card_actions`: centred over the photo, the way the grid card shows
+its button, or under the text when there's no photo. The photo and the
+actions share a `.map-popup-card_media` wrapper, which is what they're
+centred against. The page decides which a project
 gets: on the Projects page a case study links to its page, and anything else
 carries the grid card's own "Ask about this project" button, cloned with its
 Designer classes and its `mailto:` subject set to the project name.

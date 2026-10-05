@@ -118,6 +118,9 @@
     'border:0;border-radius:100%;background-color:rgba(128,128,128,.12);',
     'color:inherit;font-size:18px;line-height:1;cursor:pointer}',
     '.map-popup-card_actions{display:flex;flex-wrap:wrap;gap:8px}',
+    '.map-popup-card_media{position:relative}',
+    '.map-popup-card_media .map-popup-card_actions{position:absolute;inset:0;',
+    'align-items:center;justify-content:center;padding:12px}',
     '@media (prefers-reduced-motion:reduce){.map-panel{transition:none}}',
     '@media screen and (max-width:480px){.map-panel{max-width:100%}}',
   ].join('');
@@ -364,28 +367,35 @@
   function buildCardMarkup(point) {
     const location = formatLocation(point);
     const name = escapeHtml(point.name);
+    const isLink = Boolean(point.href && point.href !== '#');
+    // A project with somewhere to go is a link, the whole card. One without
+    // isn't a link at all — no card that looks clickable and goes nowhere —
+    // and carries whatever action the page handed over instead.
+    const actions = !isLink && point.actionsHtml ? '<div class="map-popup-card_actions">' + point.actionsHtml + '</div>' : '';
+
+    // The actions sit over the photo, centred, the way the grid card shows
+    // them. With no photo there is nothing to sit on, so they follow the text.
+    const media = point.imgSrc
+      ? '<div class="map-popup-card_media">' +
+        '<img class="map-popup-card_image" src="' + escapeHtml(point.imgSrc) + '" alt="' + name + '">' +
+        actions +
+        '</div>'
+      : '';
+
     const content =
-      (point.imgSrc ? '<img class="map-popup-card_image" src="' + escapeHtml(point.imgSrc) + '" alt="' + name + '">' : '') +
+      media +
       '<span class="map-popup-card_body">' +
       '<span class="map-popup-card_title">' +
       name +
       '</span>' +
       (location ? '<span class="map-popup-card_desc">' + escapeHtml(location) + '</span>' : '') +
-      '</span>';
+      '</span>' +
+      (point.imgSrc ? '' : actions);
 
-    // A project with somewhere to go is a link, the whole card.
-    if (point.href && point.href !== '#') {
+    if (isLink) {
       return '<a class="map-popup-card" href="' + escapeHtml(point.href) + '">' + content + '</a>';
     }
-
-    // One without isn't a link at all — no card that looks clickable and goes
-    // nowhere — and carries whatever action the page handed over instead.
-    return (
-      '<div class="map-popup-card">' +
-      content +
-      (point.actionsHtml ? '<div class="map-popup-card_actions">' + point.actionsHtml + '</div>' : '') +
-      '</div>'
-    );
+    return '<div class="map-popup-card">' + content + '</div>';
   }
 
   /* ── The card panel ──────────────────────────────────────────────────────
