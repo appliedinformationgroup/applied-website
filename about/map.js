@@ -108,7 +108,7 @@ window.initProjectsMap = function () {
         markerActive: highlight,
         officeMarker: highlight,
         daynightColor: cssVar('--map-daynight-color') || '#000000',
-        daynightOpacity: parseFloat(cssVar('--map-daynight-opacity')) || 0.18,
+        daynightOpacity: parseFloat(cssVar('--map-daynight-opacity')) || 0.5,
       };
     }
 
