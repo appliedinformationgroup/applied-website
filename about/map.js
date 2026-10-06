@@ -343,48 +343,120 @@ window.initProjectsMap = function () {
       }
     }
 
-    /* ── Day/night terminator ── */
-    function addDayNightLayer(map) {
-      if (typeof GeoJSONTerminator === 'undefined') return;
+    /* ── Day/night shading ──
+       A smooth twilight gradient rather than a hard-edged night polygon:
+       each pixel's darkness follows how far the sun is below the horizon
+       there, easing from sunset (0°) to full night at TWILIGHT_DEGREES
+       below it (18° is astronomical twilight, the real end of dusk). It's
+       painted into a small image the GPU stretches over the map, so the
+       fade is seamless, and there's no polygon for Mapbox to mis-fill —
+       the old one could draw stray wedges as the sun moved. Full night is
+       --map-daynight-color at --map-daynight-opacity. */
+    const TWILIGHT_DEGREES = 18;
+    const DAYNIGHT_IMAGE_SIZE = 256;
+    const MERCATOR_MAX_LAT = 85.051129;
+    const DAYNIGHT_COORDINATES = [
+      [-180, MERCATOR_MAX_LAT],
+      [180, MERCATOR_MAX_LAT],
+      [180, -MERCATOR_MAX_LAT],
+      [-180, -MERCATOR_MAX_LAT],
+    ];
+    const DEG = Math.PI / 180;
 
+    /* Where the sun is directly overhead: its declination (as a latitude)
+       and the longitude it's over, from the standard low-precision solar
+       formulas — accurate to well under 0.1°, far finer than a pixel. */
+    function subsolarPoint(date) {
+      const d = date.getTime() / 86400000 - 10957.5; // days since J2000.0
+      const g = (357.529 + 0.98560028 * d) * DEG; // mean anomaly
+      const q = 280.459 + 0.98564736 * d; // mean longitude
+      const lambda = (q + 1.915 * Math.sin(g) + 0.02 * Math.sin(2 * g)) * DEG; // ecliptic longitude
+      const epsilon = (23.439 - 0.00000036 * d) * DEG; // axial tilt
+      const rightAscension = Math.atan2(Math.cos(epsilon) * Math.sin(lambda), Math.cos(lambda)) / DEG;
+      const declination = Math.asin(Math.sin(epsilon) * Math.sin(lambda)) / DEG;
+      const siderealTime = 280.46061837 + 360.98564736629 * d; // at Greenwich
+
+      let lng = (rightAscension - siderealTime) % 360;
+      if (lng > 180) lng -= 360;
+      if (lng < -180) lng += 360;
+      return { lat: declination, lng };
+    }
+
+    /* Any CSS colour (hex, rgb, hsl, oklch…) → [r, g, b, a] bytes. */
+    function colorToRgba(color) {
+      const ctx = Object.assign(document.createElement('canvas'), { width: 1, height: 1 }).getContext('2d');
+      ctx.fillStyle = '#000000';
+      ctx.fillStyle = color;
+      ctx.fillRect(0, 0, 1, 1);
+      return ctx.getImageData(0, 0, 1, 1).data;
+    }
+
+    function renderDayNightImage(color) {
+      const size = DAYNIGHT_IMAGE_SIZE;
+      const canvas = Object.assign(document.createElement('canvas'), { width: size, height: size });
+      const ctx = canvas.getContext('2d');
+      const image = ctx.createImageData(size, size);
+      const rgba = colorToRgba(color);
+      const sun = subsolarPoint(new Date());
+      const sinDec = Math.sin(sun.lat * DEG);
+      const cosDec = Math.cos(sun.lat * DEG);
+
+      const cosHourAngle = new Float64Array(size);
+      for (let x = 0; x < size; x++) {
+        const lng = -180 + ((x + 0.5) * 360) / size;
+        cosHourAngle[x] = Math.cos((lng - sun.lng) * DEG);
+      }
+
+      for (let y = 0; y < size; y++) {
+        // Mapbox stretches an image evenly in Mercator y, not in latitude,
+        // so each row's latitude comes from the inverse Mercator.
+        const mercatorY = Math.PI * (1 - (2 * (y + 0.5)) / size);
+        const lat = 2 * Math.atan(Math.exp(mercatorY)) - Math.PI / 2;
+        const a = Math.sin(lat) * sinDec;
+        const b = Math.cos(lat) * cosDec;
+
+        for (let x = 0; x < size; x++) {
+          const sinAltitude = Math.max(-1, Math.min(1, a + b * cosHourAngle[x]));
+          const altitude = Math.asin(sinAltitude) / DEG;
+          let t = Math.min(1, Math.max(0, -altitude / TWILIGHT_DEGREES));
+          t = t * t * (3 - 2 * t); // smoothstep: eases into and out of twilight
+
+          const i = (y * size + x) * 4;
+          image.data[i] = rgba[0];
+          image.data[i + 1] = rgba[1];
+          image.data[i + 2] = rgba[2];
+          image.data[i + 3] = Math.round(t * rgba[3]);
+        }
+      }
+
+      ctx.putImageData(image, 0, 0);
+      return canvas.toDataURL();
+    }
+
+    /* Adds the shading, or — once it exists — repaints it for the sun's
+       current position and the current theme colour/opacity. */
+    function addDayNightLayer(map) {
       const colors = getThemeColors();
-      const geoJSON = new GeoJSONTerminator();
+      const url = renderDayNightImage(colors.daynightColor);
 
       if (!map.getSource('daynight')) {
-        map.addSource('daynight', {
-          type: 'geojson',
-          data: geoJSON,
-        });
+        map.addSource('daynight', { type: 'image', url, coordinates: DAYNIGHT_COORDINATES });
       } else {
-        map.getSource('daynight').setData(geoJSON);
+        map.getSource('daynight').updateImage({ url, coordinates: DAYNIGHT_COORDINATES });
       }
 
       if (!map.getLayer('daynight')) {
         map.addLayer({
           id: 'daynight',
-          type: 'fill',
+          type: 'raster',
           source: 'daynight',
           paint: {
-            'fill-color': colors.daynightColor,
-            'fill-opacity': colors.daynightOpacity,
+            'raster-opacity': colors.daynightOpacity,
+            'raster-fade-duration': 0,
           },
         });
       } else {
-        map.setPaintProperty('daynight', 'fill-color', colors.daynightColor);
-        map.setPaintProperty('daynight', 'fill-opacity', colors.daynightOpacity);
-      }
-    }
-
-    function updateDayNightLayer(map) {
-      if (typeof GeoJSONTerminator === 'undefined') return;
-      if (!map.getSource('daynight')) return;
-
-      const colors = getThemeColors();
-      map.getSource('daynight').setData(new GeoJSONTerminator());
-
-      if (map.getLayer('daynight')) {
-        map.setPaintProperty('daynight', 'fill-color', colors.daynightColor);
-        map.setPaintProperty('daynight', 'fill-opacity', colors.daynightOpacity);
+        map.setPaintProperty('daynight', 'raster-opacity', colors.daynightOpacity);
       }
     }
 
@@ -581,7 +653,7 @@ window.initProjectsMap = function () {
       }
 
       window._dayNightInterval = setInterval(() => {
-        updateDayNightLayer(map);
+        addDayNightLayer(map);
       }, 60000);
 
       /* Body classes can change for reasons other than the theme (scroll
