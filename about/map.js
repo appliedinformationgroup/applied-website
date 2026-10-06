@@ -26,6 +26,11 @@ window.initProjectsMap = function () {
     ];
     const WORLD_FIT_OPTIONS = { padding: 16, animate: false };
 
+    /* White ring around every project and office dot, drawn outside the
+       dot's radius. */
+    const DOT_OUTLINE_WIDTH = 1;
+    const DOT_OUTLINE_COLOR = '#FFFFFF';
+
     /* Country polygons with a CONTINENT property, from Natural Earth (public domain). */
     const CONTINENTS_URL = 'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson';
 
@@ -403,6 +408,8 @@ window.initProjectsMap = function () {
           paint: {
             'circle-color': colors.marker,
             'circle-radius': 4,
+            'circle-stroke-width': DOT_OUTLINE_WIDTH,
+            'circle-stroke-color': DOT_OUTLINE_COLOR,
           },
         });
       } else {
@@ -430,6 +437,8 @@ window.initProjectsMap = function () {
           paint: {
             'circle-color': colors.officeMarker,
             'circle-radius': 8,
+            'circle-stroke-width': DOT_OUTLINE_WIDTH,
+            'circle-stroke-color': DOT_OUTLINE_COLOR,
           },
         });
       } else {
