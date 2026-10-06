@@ -7,10 +7,10 @@ window.initProjectsMap = function () {
     const mapEl = document.getElementById('map');
     if (!mapEl) return;
 
-    const STYLES = {
-      dark: 'mapbox://styles/mapbox/dark-v11',
-      light: 'mapbox://styles/applied-information-group/cmr3a1400000u01s883gfbh0f',
-    };
+    /* One style for both light and dark mode — its layer visibility is
+       managed in Mapbox Studio, so the JS never swaps or edits it. Only the
+       layers this script adds itself are recoloured when the mode changes. */
+    const MAP_STYLE = 'mapbox://styles/applied-information-group/cmc3jjpo7008x01sb3evl6jlb';
 
     /* ── World-fit camera ──
        Always shows this same lat/lng box, sized to whatever the container's
@@ -434,7 +434,8 @@ window.initProjectsMap = function () {
       }
     }
 
-    function bindHover(map) {
+    /* Hover label for office markers only — project markers have none. */
+    function bindOfficeHover(map) {
       let hoverPopup;
 
       function showHover(e) {
@@ -466,35 +467,23 @@ window.initProjectsMap = function () {
         }
       }
 
-      map.on('mouseenter', 'locations-points', showHover);
-      map.on('mouseleave', 'locations-points', hideHover);
-
       map.on('mouseenter', 'offices-points', showHover);
       map.on('mouseleave', 'offices-points', hideHover);
     }
 
-    function rebuildMapLayers(map) {
-      map.setProjection('mercator');
+    /* Adds this script's own layers the first time; after that each add*()
+       finds its layer already there and just re-applies the current theme
+       colours, so this doubles as the light/dark recolour. */
+    function applyMapLayers(map) {
       addDayNightLayer(map);
       addProjectLocations(map);
       addContinentLayers(map);
       addOfficeLocations(map);
-      bindHover(map);
-    }
-
-    function switchBaseStyle(map) {
-      const nextStyle = STYLES[currentMode()] || STYLES.light;
-
-      map.setStyle(nextStyle);
-
-      map.once('style.load', () => {
-        rebuildMapLayers(map);
-      });
     }
 
     const map = new mapboxgl.Map({
       container: 'map',
-      style: STYLES[currentMode()] || STYLES.light,
+      style: MAP_STYLE,
       bounds: WORLD_BOUNDS,
       fitBoundsOptions: WORLD_FIT_OPTIONS,
       projection: 'mercator',
@@ -529,7 +518,7 @@ window.initProjectsMap = function () {
     /* Populate the sources once the CMS data (all pages of it) is in. Runs
        independently of map/style load — whichever finishes second applies
        the data: if the source already exists this updates it directly, and
-       if not, rebuildMapLayers() picks up the already-populated features
+       if not, applyMapLayers() picks up the already-populated features
        when it runs. */
     collectFeatures('location-list', true).then((features) => {
       mapLocations.features = features;
@@ -555,7 +544,9 @@ window.initProjectsMap = function () {
     };
 
     map.on('load', () => {
-      rebuildMapLayers(map);
+      map.setProjection('mercator');
+      applyMapLayers(map);
+      bindOfficeHover(map);
 
       /* Country polygons load separately — the map, markers, and stats
          all work without waiting on this; the highlight just activates
@@ -581,8 +572,14 @@ window.initProjectsMap = function () {
         updateDayNightLayer(map);
       }, 60000);
 
+      /* Body classes can change for reasons other than the theme (scroll
+         interactions, etc.), so only recolour when the mode actually flips. */
+      let lastMode = currentMode();
       const obs = new MutationObserver(() => {
-        switchBaseStyle(map);
+        const mode = currentMode();
+        if (mode === lastMode) return;
+        lastMode = mode;
+        applyMapLayers(map);
       });
 
       obs.observe(document.body, {
