@@ -94,11 +94,14 @@ window.initProjectsMap = function () {
       return getComputedStyle(document.body).getPropertyValue(name).trim();
     }
 
+    /* Projects stay black in both modes; offices and the continent highlight
+       share the highlight colour (the basemap is green, so it isn't green). */
     function getThemeColors() {
+      const highlight = cssVar('--map--highlight') || '#FF3B30';
       return {
-        marker: cssVar('--_colors---map-marker') || '#2C2C2E',
-        markerActive: cssVar('--_colors---map-marker-active') || '#34C759',
-        officeMarker: cssVar('--_colors---office-marker') || '#34C759',
+        marker: cssVar('--neutral--950') || '#0A0A0A',
+        markerActive: highlight,
+        officeMarker: highlight,
         daynightColor: cssVar('--map-daynight-color') || '#000000',
         daynightOpacity: parseFloat(cssVar('--map-daynight-opacity')) || 0.18,
       };
