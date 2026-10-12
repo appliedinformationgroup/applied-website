@@ -277,7 +277,7 @@ window.initProjectsMap = function () {
       el.hidden = false;
       el.innerHTML =
   '<table class="continent-stats_table">' +
-  '<thead><tr><th scope="col">Locations</th><th scope="col">Projects</th></tr></thead>' +
+  '<thead><tr><th scope="col">Continent</th><th scope="col">Locations</th></tr></thead>' +
   '<tbody>' + rows + '</tbody>' +
   '</table>';
     }
